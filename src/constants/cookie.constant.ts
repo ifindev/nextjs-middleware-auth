@@ -10,7 +10,7 @@ export const accessTokenCookieOptions: Partial<ResponseCookie> = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
-    maxAge: 10, // 10 seconds
+    maxAge: 10, // 10 seconds => JUST FOR DEMO PURPOSES. SHOULD BE COMMUNICATED WITH THE BACKEND TEAM.
 };
 
 export const refreshTokenCookieOptions: Partial<ResponseCookie> = {
@@ -18,5 +18,5 @@ export const refreshTokenCookieOptions: Partial<ResponseCookie> = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
-    maxAge: 30, // 30 seconds
+    maxAge: 30, // 30 seconds => JUST FOR DEMO PURPOSES. SHOULD BE COMMUNICATED WITH THE BACKEND TEAM.
 };
