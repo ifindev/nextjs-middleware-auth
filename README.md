@@ -98,6 +98,213 @@ Then follow intructions on setting up the `.env` variables on that repository.
 npm run dev
 ```
 
+## Folder & File Structure
+
+The project follows a clean, modular architecture with clear separation of concerns. This structure makes the codebase maintainable, testable, and scalable.
+
+```
+src/
+├── actions/                   # Server Actions (Next.js App Router)
+│   └── auth.action.ts         # Authentication-related server actions
+├── app/                       # Next.js App Router pages
+│   ├── login/                 # Login page
+│   └── (platform)/            # Platform pages (protected)
+├── clients/                   # API clients
+│   └── http/                  # HTTP client implementation
+│       ├── base-http.client.ts  # Base HTTP client with auth handling
+│       └── http.client.interface.ts # HTTP client interface
+├── components/                # Shared UI components
+│   └── navigation.tsx         # Navigation component
+├── constants/                 # Application constants
+│   ├── cookie.constant.ts     # Cookie related constants
+│   ├── route.constant.ts      # Route definitions
+│   └── time.constant.ts       # Time-related constants
+├── libs/                      # Core business logic
+│   └── auth/                  # Authentication domain
+│       ├── models/            # Data models
+│       │   ├── login.model.ts # Login-related data models
+│       │   └── user.model.ts  # User data model
+│       └── repository/        # Repository pattern implementation
+│           ├── auth.repository.interface.ts # Repository interface
+│           └── auth.repository.impl.ts      # Repository implementation
+├── middleware.ts              # Next.js middleware entry point
+├── middlewares/               # Custom middleware implementations
+│   ├── auth-status.middleware.ts # Auth status verification
+│   ├── auth.middleware.ts      # Main auth middleware
+│   └── check-route.middleware.ts # Route checking logic
+├── modules/                   # Feature modules with MVVM pattern
+│   ├── home/                  # Home module
+│   │   ├── home.view-model.ts # Home view model
+│   │   └── home.view.tsx      # Home view
+│   └── login/                 # Login module
+│       ├── login.view-model.ts # Login view model
+│       └── login.view.tsx     # Login view
+└── utils/                     # Utility functions
+    └── jwt.util.ts            # JWT-related utilities
+```
+
+### Layered Architecture
+
+The project implements a layered architecture that promotes a clean separation of concerns:
+
+#### 1. Presentation Layer
+
+**App Layer**
+
+- `src/app/` - Contains Next.js App Router pages
+- `src/components/` - Reusable UI components
+- `src/modules/` - Feature-specific views and view models
+
+This layer follows the MVVM (Model-View-ViewModel) pattern:
+
+- **Views** (`*.view.tsx`) - UI components that display data and capture user input
+- **View Models** (`*.view-model.ts`) - Manages the UI state and business logic for views
+
+Example:
+
+```typescript
+// src/modules/login/login.view-model.ts
+export default function useLoginViewModel() {
+    const [loginState, loginFormAction] = useFormState(loginAction, {});
+    const loginPending = useFormStatus().pending;
+
+    return { loginFormAction, loginPending, loginState };
+}
+
+// src/modules/login/login.view.tsx
+export default function LoginView() {
+    const { loginFormAction, loginPending, loginState } = useLoginViewModel();
+
+    return (
+        <form action={loginFormAction}>
+            {/* Form elements */}
+        </form>
+    );
+}
+```
+
+#### 2. Application Layer
+
+**Actions and Middleware**
+
+- `src/actions/` - Server-side actions for handling form submissions and API calls
+- `src/middlewares/` - HTTP request middleware for authentication and route protection
+
+This layer contains the application logic that coordinates between UI and domain layers:
+
+Example:
+
+```typescript
+// src/actions/auth.action.ts
+export async function loginAction(_prevState: unknown, formData: FormData) {
+    try {
+        const { accessToken, refreshToken } = await authRepository.login({
+            username: formData.get('username') as string,
+            password: formData.get('password') as string,
+        });
+
+        // Set cookies
+        const cookieStore = await cookies();
+        cookieStore.set(COOKIE_NAME.ACCESS_TOKEN, accessToken, accessTokenCookieOptions);
+        // ...
+    } catch (error) {
+        // Error handling
+    }
+}
+```
+
+#### 3. Domain Layer
+
+**Business Logic and Models**
+
+- `src/libs/` - Core business logic organized by domain
+- `src/libs/auth/models/` - Domain models representing business entities
+- `src/libs/auth/repository/` - Repository pattern for data access abstraction
+
+This layer contains the core business logic, independent of UI or external APIs:
+
+Example:
+
+```typescript
+// src/libs/auth/repository/auth.repository.interface.ts
+export default interface AuthRepository {
+    login(req: LoginRequest): Promise<LoginResponse>;
+    logout(): Promise<void>;
+    refreshToken(): Promise<RefreshTokenResponse>;
+    getUser(): Promise<User>;
+}
+```
+
+#### 4. Infrastructure Layer
+
+**API Clients and Utilities**
+
+- `src/clients/` - API client implementations
+- `src/utils/` - Utility functions
+- `src/constants/` - Application constants
+
+This layer handles external communication and provides supporting utilities:
+
+Example:
+
+```typescript
+// src/clients/http/base-http.client.ts
+export class BaseHttpClient implements IHttpClient {
+    async get<T>(url: string, config?: RequestInit): Promise<T> {
+        return this.makeRequest<T>(url, {
+            ...config,
+            method: 'GET',
+        });
+    }
+    // Other HTTP methods...
+}
+```
+
+### Key Architectural Patterns
+
+1. **Repository Pattern**: Abstracts data access logic
+
+    ```typescript
+    // Usage in actions
+    const { accessToken, refreshToken } = await authRepository.login({...});
+    ```
+
+2. **Middleware Pattern**: Processes HTTP requests for authentication
+
+    ```typescript
+    // src/middlewares/auth.middleware.ts
+    export default async function authMiddleware(request: NextRequest) {
+        const { isPublicRoute } = checkRoute(request);
+        const authStatus = await getAuthStatus(request);
+        // ...
+    }
+    ```
+
+3. **MVVM Pattern**: Separates UI from business logic
+
+    ```typescript
+    // View Model provides state and actions
+    const { loginFormAction, loginState } = useLoginViewModel();
+
+    // View consumes the view model
+    <form action={loginFormAction}>
+    ```
+
+4. **Dependency Injection**: Promotes loose coupling
+    ```typescript
+    // src/libs/auth/repository/auth.repository.impl.ts
+    export function authRepositoryImpl(http: IHttpClient): AuthRepository {
+        // Implementation that depends on the HTTP client
+    }
+    ```
+
+This architecture promotes:
+
+- **Testability**: Each layer can be tested in isolation
+- **Maintainability**: Clear separation of concerns makes the code easier to understand and maintain
+- **Scalability**: New features can be added by extending existing layers
+- **Reusability**: Components can be reused across the application
+
 ## Authentication Implementation
 
 The implementation uses an external authentication backend service for JWT token management. The Next.js application uses a repository pattern to communicate with this backend service, which handles token generation, validation, and refreshing.
