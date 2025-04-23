@@ -1,4 +1,4 @@
-# Next.js App Route Secure Authentication
+# Next.js App Router Secure Authentication
 
 This project demonstrates two authentication approaches in Next.js using the App Router:
 
