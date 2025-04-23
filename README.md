@@ -1,26 +1,29 @@
-# Next.js Authentication Example
+# 🔐 Next.js Authentication with JWT and External Backend
 
-This project demonstrates two authentication approaches in Next.js using the App Router: **Session-based Authentication** and **JWT Authentication**. Both implementations follow security best practices and provide protection for routes in a Next.js application.
+This project demonstrates how to implement secure authentication in Next.js using the App Router with an external JWT authentication service. This implementation follows security best practices and provides protection for routes in a Next.js application.
 
 ## Table of Contents
 
 - [Introduction](#introduction)
 - [Getting Started](#getting-started)
-- [Authentication Implementations](#authentication-implementations)
-    - [Session-based Authentication](#session-based-authentication)
-    - [JWT Authentication](#jwt-authentication)
+- [Authentication Implementation](#authentication-implementation)
+    - [How It Works](#how-it-works)
+    - [Architecture](#architecture)
+    - [Sequence Diagram](#sequence-diagram)
+    - [Implementation Details](#implementation-details)
 - [Usage](#usage)
 - [Security Best Practices](#security-best-practices)
 - [Contributing](#contributing)
 
 ## Introduction
 
-This project showcases how to implement secure authentication in a Next.js application using two popular approaches:
+This project showcases how to implement secure authentication in a Next.js application using JSON Web Tokens (JWT) managed by an external authentication service. This approach provides a clean separation of concerns, where:
 
-1. **Session-based Authentication**: Uses server-side sessions stored in HTTP-Only cookie
-2. **JWT-based Authentication**: Uses JSON Web Tokens with access and refresh token mechanisms both stored in HTTP-Only cookies
+- The authentication logic and user management is handled by a dedicated backend service
+- The Next.js application acts as a client to this service
+- Authentication state is maintained using HTTP-only cookies containing JWT tokens
 
-You can easily switch between these two authentication methods based on your project's requirements.
+This architecture is particularly well-suited for microservice-based applications or when you need to share authentication across multiple frontend applications.
 
 ## Getting Started
 
@@ -28,6 +31,7 @@ You can easily switch between these two authentication methods based on your pro
 
 - Node.js 18+
 - npm, yarn, or pnpm
+- Access to an authentication backend service.
 
 ### Installation
 
@@ -48,9 +52,8 @@ pnpm install
    Create a `.env` file with the following content:
 
 ```
-SECRET_KEY=your_secret_key_for_session
-JWT_ACCESS_SECRET=your_access_token_secret
-JWT_REFRESH_SECRET=your_refresh_token_secret
+# Backend API URL for authentication service
+BACKEND_API_URL=http://your-auth-service.com/api
 ```
 
 4. Run the development server:
@@ -59,173 +62,294 @@ JWT_REFRESH_SECRET=your_refresh_token_secret
 pnpm run dev
 ```
 
-## Authentication Implementations
+### Setting up the Backend Service
 
-### Session-based Authentication
+If you don't have any backend service available, you can use backend app I have built in my [Secure Auth](https://github.com/ifindev/secure-authentication/tree/feat/return-refresh-token). Here's how you can set it up:
 
-Session-based authentication uses server-side sessions managed through cookies. When a user logs in, the server creates a session and sends a cookie with a session identifier to the client.
+1. Clone the repository:
 
-#### How It Works
-
-1. User logs in with credentials
-2. Server verifies credentials and creates a session
-3. Session ID is stored in an HTTP-only cookie
-4. On subsequent requests, the server validates the session ID
-5. When the user logs out, the server invalidates the session
-
-#### Sequence Diagram
-
-```
-┌──────┐                  ┌──────────┐               ┌──────────┐
-│Client│                  │Middleware│               │Server    │
-└──┬───┘                  └────┬─────┘               └────┬─────┘
-   │                           │                          │
-   │ 1. Request Protected Page │                          │
-   │─────────────────────────->│                          │
-   │                           │                          │
-   │                           │ 2. Check Session Cookie  │
-   │                           │─────────────────────────>│
-   │                           │                          │
-   │                           │ 3. Session Valid/Invalid │
-   │                           │<─────────────────────────│
-   │                           │                          │
-   │ 4. Redirect or Allow      │                          │
-   │<─────────────────────────-│                          │
-   │                           │                          │
-   │ 5. Login Request          │                          │
-   │─────────────────────────────────────────────────────>│
-   │                           │                          │
-   │                           │                          │ 6. Verify Credentials
-   │                           │                          │──────────────────┐
-   │                           │                          │<─────────────────┘
-   │                           │                          │
-   │ 7. Set Session Cookie     │                          │
-   │<─────────────────────────────────────────────────────│
-   │                           │                          │
-   │ 8. Request Logout         │                          │
-   │─────────────────────────────────────────────────────>│
-   │                           │                          │
-   │ 9. Clear Session Cookie   │                          │
-   │<─────────────────────────────────────────────────────│
-   │                           │                          │
+```bash
+git clone https://github.com/ifindev/secure-authentication
 ```
 
-#### Implementation Details
+2. Checkout to the `feat/return-refresh-token` branch:
 
-The session authentication implementation consists of:
+```bash
+git pull
 
-1. **Session Creation**: Using the `login` function in `session-auth.ts` that sets an encrypted session cookie
-2. **Session Validation**: Using the `updateSession` function to check and refresh the session
-3. **Middleware Protection**: Using `sessionAuthMiddleware` to protect routes
+git checkout feat/return-refresh-token
+```
+
+On this branch, I have disabled setting up `refreshToken` in `HttpOnly` cookie. This simulate authentication systems that returns both `accessToken` and `refreshToken` as plain object. The Next.js app will handle setting up both JWT Tokens to `HttpOnly` cookie.
+
+3. Checkout to `/server` directory, install all dependencies
+
+```bash
+cd server/
+
+npm install
+```
+
+Then follow intructions on setting up the `.env` variables on that repository.
+
+4. Start the development server by running:
+
+```bash
+npm run dev
+```
+
+## Authentication Implementation
+
+The implementation uses an external authentication backend service for JWT token management. The Next.js application uses a repository pattern to communicate with this backend service, which handles token generation, validation, and refreshing.
+
+### How It Works
+
+1. User logs in with credentials through a Next.js server action
+2. The server action sends the credentials to the external authentication API
+3. Upon successful authentication, the API returns access and refresh tokens
+4. Tokens are stored in HTTP-only cookies by the Next.js server action
+5. The Middleware checks if the access token is valid (not expired) on each request
+6. If the access token is expired, the middleware attempts to refresh it using the refresh token
+7. When refreshing, the middleware calls the external backend's refresh endpoint
+8. When the user logs out, both tokens are invalidated via the external backend and removed from `HttpOnly` cookie by Next.js server action
+
+### Architecture
+
+```
+┌─────────────┐     ┌────────────┐      ┌─────────────────┐
+│ Next.js App │     │ Next.js    │      │ Authentication  │
+│ (Client)    │────>│ Middleware │─────>│ Backend Service │
+└─────────────┘     └────────────┘      └─────────────────┘
+      │                   ↑                      ↑
+      │                   │                      │
+      │           checks token validity   provides tokens
+      │                   │                      │
+      │              ┌────────────┐              │
+      └──────────────┤ Server     │──────────────┘
+                     │ Actions    │
+                     └────────────┘
+```
+
+### Sequence Diagram
+
+```
+┌──────┐              ┌──────────┐         ┌────────────┐        ┌──────────────┐
+│Client│              │Middleware│         │Next.js API │        │Auth Backend  │
+└──┬───┘              └────┬─────┘         └─────┬──────┘        └──────┬───────┘
+   │                       │                     │                      │
+   │ 1. Request Protected  │                     │                      │
+   │    Page               │                     │                      │
+   │──────────────────────>|                     │                      │
+   │                       │                     │                      │
+   │                       │ 2. Check Token Age  │                      │
+   │                       │───────────────────────────────────────────>│
+   │                       │                     │                      │
+   │                       │ 3. If Expired,      │                      │
+   │                       │    Refresh Token    │                      │
+   │                       │───────────────────────────────────────────>│
+   │                       │                     │                      │
+   │                       │ 4. New Tokens       │                      │
+   │                       │<───────────────────────────────────────────│
+   │                       │                     │                      │
+   │ 5. Redirect or Allow  │                     │                      │
+   │<──────────────────────|                     │                      │
+   │                       │                     │                      │
+   │ 6. Login Request      │                     │                      │
+   │─────────────────────────────────────────────>                      │
+   │                       │                     │                      │
+   │                       │                     │ 7. Auth Request      │
+   │                       │                     │─────────────────────>│
+   │                       │                     │                      │
+   │                       │                     │ 8. Return Tokens     │
+   │                       │                     │<─────────────────────│
+   │                       │                     │                      │
+   │ 9. Set Cookies &      |                     |                      |
+   |    Redirect           │                     │                      |
+   │<─────────────────────────────────────────────                      │
+   │                       │                     │                      │
+```
+
+### Implementation Details
+
+The JWT authentication with external backend implementation consists of the following components:
+
+#### 1. Authentication Repository
+
+An abstraction layer that communicates with the backend service:
 
 ```typescript
-// Session middleware
-export async function sessionAuthMiddleware(request: NextRequest) {
-    const { isPublicRoute, isProtectedRoute } = checkRoute(request);
-    const session = await updateSession(request);
+// src/libs/auth/repository/auth.repository.impl.ts
+export function authRepositoryImpl(http: IHttpClient): AuthRepository {
+    const login = async (req: LoginRequest): Promise<LoginResponse> => {
+        const response = await http.post<LoginResponse>('auth/login', req);
+        return response;
+    };
 
-    if (isPublicRoute && session) {
-        return NextResponse.redirect(new URL('/', request.url));
+    const logout = async (): Promise<void> => {
+        await http.post<void>('auth/logout');
+    };
+
+    const refreshToken = async (): Promise<RefreshTokenResponse> => {
+        const response = await http.post<RefreshTokenResponse>('auth/refresh-token');
+        return response;
+    };
+
+    const getUser = async (): Promise<User> => {
+        const response = await http.get<User>('users/profile');
+        return response;
+    };
+
+    return {
+        login,
+        logout,
+        refreshToken,
+        getUser,
+    };
+}
+
+const authRepository = authRepositoryImpl(httpClient);
+export default authRepository;
+```
+
+#### 2. HTTP Client
+
+Handles API requests with automatic token inclusion and refresh:
+
+```typescript
+// src/clients/http/base-http.client.ts (simplified)
+export class BaseHttpClient implements IHttpClient {
+    baseUrl: string;
+    headers?: Record<string, string>;
+
+    constructor(config: BaseHttpClientConfig) {
+        this.baseUrl = config.baseUrl ?? '';
+        this.headers = config.headers ?? {};
     }
 
-    if (isProtectedRoute && !session) {
-        return NextResponse.redirect(new URL('/login', request.url));
+    async getBearerToken(): Promise<string> {
+        const cookieStore = await cookies();
+        const accessToken = cookieStore.get(COOKIE_NAME.ACCESS_TOKEN)?.value ?? '';
+        return `Bearer ${accessToken}`;
     }
 
-    return NextResponse.next();
+    private async buildHeaders(
+        headers: Record<string, string> = {},
+    ): Promise<Record<string, string>> {
+        const cookieStore = await cookies();
+        const bearerToken = await this.getBearerToken();
+        return {
+            ...this.getDefaultHeaders(),
+            ...this.headers,
+            ...headers,
+            Cookie: cookieStore.toString(),
+            Authorization: bearerToken,
+        };
+    }
+
+    async makeRequest<T>(url: string, config: RequestInit): Promise<T> {
+        const headers = await this.buildHeaders(config.headers as Record<string, string>);
+        // Full request implementation...
+    }
+
+    // HTTP method implementations (get, post, etc.)
+}
+
+const httpClient = new BaseHttpClient({
+    baseUrl: process.env.BACKEND_API_URL ?? '',
+});
+```
+
+#### 3. Token Expiration Checking
+
+Uses JWT decoding to check expiration without verification:
+
+```typescript
+// src/utils/jwt.util.ts
+import { jwtDecode } from 'jwt-decode';
+import { SECOND } from '@/constants/time.constant';
+
+export function getTokenExpiryTime(token: string): number {
+    const decoded = jwtDecode<{ exp: number }>(token);
+    return decoded.exp;
+}
+
+export function isTokenExpired(token: string): boolean {
+    const exp = getTokenExpiryTime(token);
+    const now = new Date().getTime() / SECOND;
+    return exp < now;
 }
 ```
 
-#### Pros and Cons
+#### 4. Auth Status Middleware
 
-**Pros:**
-
-- Simple implementation
-- Server has full control over sessions
-- Can invalidate sessions immediately
-
-**Cons:**
-
-- Requires session storage (can be a database, Redis, etc.)
-- Not ideal for distributed systems without shared session storage
-- Slightly more server overhead
-
-### JWT Authentication
-
-JWT (JSON Web Token) authentication uses signed tokens to verify a user's identity. It employs both access tokens (short-lived) and refresh tokens (longer-lived) to maintain security.
-
-#### How It Works
-
-1. User logs in with credentials
-2. Server generates access token and refresh token
-3. Tokens are stored in HTTP-only cookies
-4. Access token is used for authentication until it expires
-5. When the access token expires, the refresh token is used to get a new access token
-6. When the user logs out, both tokens are invalidated
-
-#### Sequence Diagram
-
-```
-┌──────┐                  ┌──────────┐               ┌──────────┐
-│Client│                  │Middleware│               │Server    │
-└──┬───┘                  └────┬─────┘               └────┬─────┘
-   │                           │                          │
-   │ 1. Request Protected Page │                          │
-   │─────────────────────────->│                          │
-   │                           │                          │
-   │                           │ 2. Verify Access Token   │
-   │                           │─────────────────────────>│
-   │                           │                          │
-   │                           │ 3. Token Valid/Invalid   │
-   │                           │<─────────────────────────│
-   │                           │                          │
-   │                           │ 4. If Invalid, Try Refresh Token
-   │                           │─────────────────────────>│
-   │                           │                          │
-   │                           │ 5. New Tokens or Fail    │
-   │                           │<─────────────────────────│
-   │                           │                          │
-   │ 6. Redirect or Allow      │                          │
-   │<─────────────────────────-│                          │
-   │                           │                          │
-   │ 7. Login Request          │                          │
-   │─────────────────────────────────────────────────────>│
-   │                           │                          │
-   │                           │                          │ 8. Verify Credentials
-   │                           │                          │──────────────────┐
-   │                           │                          │<─────────────────┘
-   │                           │                          │
-   │ 9. Set Token Cookies      │                          │
-   │<─────────────────────────────────────────────────────│
-   │                           │                          │
-   │ 10. Request Logout        │                          │
-   │─────────────────────────────────────────────────────>│
-   │                           │                          │
-   │ 11. Clear Token Cookies   │                          │
-   │<─────────────────────────────────────────────────────│
-   │                           │                          │
-```
-
-#### Implementation Details
-
-The JWT authentication implementation consists of:
-
-1. **Token Generation**: Using `generateTokens` function to create access and refresh tokens
-2. **Token Validation**: Using `verifyAccessToken` and `verifyRefreshToken` functions
-3. **Token Refresh**: Using `refreshTokens` to handle token refreshing
-4. **Middleware Protection**: Using `jwtAuthMiddleware` to protect routes
+Verifies token validity and handles refreshing:
 
 ```typescript
-// JWT middleware (simplified)
-export async function jwtAuthMiddleware(request: NextRequest) {
-    const path = request.nextUrl.pathname;
-    const isPublicRoute = publicRoutes.includes(path);
+// src/middlewares/auth-status.middleware.ts
+import { cookies } from 'next/headers';
+import { NextRequest } from 'next/server';
 
-    // Get authentication status
+import {
+    COOKIE_NAME,
+    accessTokenCookieOptions,
+    refreshTokenCookieOptions,
+} from '@/constants/cookie.constant';
+import { isTokenExpired } from '@/utils/jwt.util';
+import authRepository from '@/libs/auth/repository/auth.repository.impl';
+
+type AuthStatus = { status: 'authenticated' } | { status: 'unauthenticated' };
+
+export default async function getAuthStatus(request: NextRequest): Promise<AuthStatus> {
+    const accessToken = request.cookies.get(COOKIE_NAME.ACCESS_TOKEN)?.value;
+    const refreshToken = request.cookies.get(COOKIE_NAME.REFRESH_TOKEN)?.value;
+
+    // Check if access token exists and not expired
+    if (accessToken && !isTokenExpired(accessToken)) {
+        return { status: 'authenticated' };
+    }
+
+    // If no refresh token or it's expired, user is unauthenticated
+    if (!refreshToken || isTokenExpired(refreshToken)) {
+        return { status: 'unauthenticated' };
+    }
+
+    // Try to refresh the token
+    try {
+        const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+            await authRepository.refreshToken();
+
+        const cookieStore = await cookies();
+
+        // Set new cookies
+        cookieStore.set(COOKIE_NAME.ACCESS_TOKEN, newAccessToken, accessTokenCookieOptions);
+        cookieStore.set(COOKIE_NAME.REFRESH_TOKEN, newRefreshToken, refreshTokenCookieOptions);
+
+        return { status: 'authenticated' };
+    } catch (error) {
+        console.error('Token refresh failed:', error);
+        return { status: 'unauthenticated' };
+    }
+}
+```
+
+#### 5. Auth Middleware
+
+Protects routes using the auth status:
+
+```typescript
+// src/middlewares/auth.middleware.ts
+import { NextRequest, NextResponse } from 'next/server';
+
+import checkRoute from '@/middlewares/check-route.middleware';
+import getAuthStatus from '@/middlewares/auth-status.middleware';
+
+export default async function authMiddleware(request: NextRequest) {
+    const { isPublicRoute } = checkRoute(request);
+
     const authStatus = await getAuthStatus(request);
 
     // Handle public routes - redirect authenticated users to home
-    if (isPublicRoute && authStatus.status !== 'unauthenticated') {
+    if (isPublicRoute && authStatus.status === 'authenticated') {
         return NextResponse.redirect(new URL('/', request.url));
     }
 
@@ -234,96 +358,210 @@ export async function jwtAuthMiddleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/login', request.url));
     }
 
+    // Allow the request to proceed
     return NextResponse.next();
 }
 ```
 
-#### Pros and Cons
+#### 6. Server Actions
 
-**Pros:**
-
-- Stateless authentication
-- Good for distributed systems and microservices
-- Can include additional user data in the token payload
-
-**Cons:**
-
-- Cannot invalidate tokens before they expire (without additional infrastructure)
-- Slightly more complex implementation with refresh tokens
-- Token size can increase payload size
-
-## Usage
-
-### Switching Authentication Methods
-
-To switch between authentication methods, modify the `middleware.ts` file:
+Handle login/logout with the external backend:
 
 ```typescript
-import { NextRequest } from 'next/server';
-import { jwtAuthMiddleware } from './middlewares/jwt-auth';
-import { sessionAuthMiddleware } from './middlewares/session-auth';
+// src/actions/auth.action.ts
+'use server';
 
-export async function middleware(request: NextRequest) {
-    // Use JWT authentication
-    return jwtAuthMiddleware(request);
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
-    // Or use Session authentication
-    // return sessionAuthMiddleware(request);
+import authRepository from '@/libs/auth/repository/auth.repository.impl';
+import {
+    accessTokenCookieOptions,
+    COOKIE_NAME,
+    refreshTokenCookieOptions,
+} from '@/constants/cookie.constant';
+
+export async function loginAction(_prevState: unknown, formData: FormData) {
+    try {
+        const username = formData.get('username') as string;
+        const password = formData.get('password') as string;
+
+        if (!username || !password) {
+            throw new Error('Username and password are required');
+        }
+
+        // Call authentication API through repository
+        const { accessToken, refreshToken } = await authRepository.login({
+            username,
+            password,
+        });
+
+        // Set cookies
+        const cookieStore = await cookies();
+        cookieStore.set(COOKIE_NAME.ACCESS_TOKEN, accessToken, accessTokenCookieOptions);
+        cookieStore.set(COOKIE_NAME.REFRESH_TOKEN, refreshToken, refreshTokenCookieOptions);
+    } catch (error) {
+        console.error('Login Action Error:', error);
+        return {
+            message: `Login failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            status: 'error',
+        };
+    }
+
+    redirect('/');
+}
+
+export async function logoutAction() {
+    try {
+        // Clear cookies
+        const cookieStore = await cookies();
+        cookieStore.delete(COOKIE_NAME.ACCESS_TOKEN);
+        cookieStore.delete(COOKIE_NAME.REFRESH_TOKEN);
+
+        // Notify backend of logout
+        await authRepository.logout();
+
+        redirect('/login');
+    } catch (error) {
+        console.error('Logout Action Error:', error);
+        redirect('/');
+    }
 }
 ```
 
-### Protected Routes
+#### 7. Constants and Cookie Configuration
 
-All routes except for the ones specified in `publicRoutes` array are protected:
+Cookie settings for tokens:
 
 ```typescript
-const publicRoutes = ['/login', '/register'];
+// src/constants/cookie.constant.ts
+import { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies';
+
+export const COOKIE_NAME = {
+    ACCESS_TOKEN: 'accessToken',
+    REFRESH_TOKEN: 'refreshToken',
+};
+
+export const accessTokenCookieOptions: Partial<ResponseCookie> = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 15 * 60, // 15 minutes in seconds
+};
+
+export const refreshTokenCookieOptions: Partial<ResponseCookie> = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
+};
 ```
 
-To access protected routes, users must be authenticated. Unauthenticated users will be redirected to the login page.
+## Usage
 
-### API Examples
-
-#### Login
+### Login
 
 ```typescript
-// Using Session Auth
-await sessionLogin(formData);
+// In a form component
+'use client';
+import { loginAction } from '@/actions/auth.action';
+import { useFormState } from 'react-dom';
 
-// Using JWT Auth
-await jwtLogin(formData);
+export default function LoginForm() {
+  const [state, formAction] = useFormState(loginAction, {});
+
+  return (
+    <form action={formAction}>
+      <div>
+        <label htmlFor="username">Username</label>
+        <input id="username" name="username" type="text" required />
+      </div>
+      <div>
+        <label htmlFor="password">Password</label>
+        <input id="password" name="password" type="password" required />
+      </div>
+      {state.status === 'error' && <p className="error">{state.message}</p>}
+      <button type="submit">Login</button>
+    </form>
+  );
+}
 ```
 
-#### Logout
+### Logout
 
 ```typescript
-// Using Session Auth
-await sessionLogout();
+// In a component
+'use client';
+import { logoutAction } from '@/actions/auth.action';
 
-// Using JWT Auth
-await jwtLogout();
+export default function LogoutButton() {
+  return (
+    <form action={logoutAction}>
+      <button type="submit">Logout</button>
+    </form>
+  );
+}
 ```
 
-#### Get User Information
+### Get User Information
 
 ```typescript
-// Using Session Auth
-const session = await getSession();
+// In a server component
+import authRepository from '@/libs/auth/repository/auth.repository.impl';
 
-// Using JWT Auth
-const user = await getUserFromCookies();
+export default async function UserProfile() {
+  const user = await authRepository.getUser();
+
+  return (
+    <div>
+      <h1>User Profile</h1>
+      <p>Name: {user.name}</p>
+      <p>Email: {user.email}</p>
+      {/* Other user information */}
+    </div>
+  );
+}
+```
+
+### Protected Route
+
+```typescript
+// In middleware.ts
+import { NextRequest } from 'next/server';
+import authMiddleware from './middlewares/auth.middleware';
+
+export async function middleware(request: NextRequest) {
+    return authMiddleware(request);
+}
+
+export const config = {
+    matcher: [
+        /*
+         * Match all request paths except for the ones starting with:
+         * - _next/static (static files)
+         * - _next/image (image optimization files)
+         * - favicon.ico (favicon file)
+         */
+        '/((?!_next/static|_next/image|favicon.ico).*)',
+    ],
+};
 ```
 
 ## Security Best Practices
 
 This project implements several security best practices:
 
-1. **HTTP-Only Cookies**: Prevents JavaScript access to sensitive cookies
-2. **Secure Flag**: Ensures cookies are only sent over HTTPS in production
-3. **SameSite Policy**: Protects against CSRF attacks
-4. **Token Expiration**: Short-lived access tokens with refresh mechanisms
-5. **CSRF Protection**: Using SameSite cookies
-6. **Proper Error Handling**: Non-revealing error messages
+1. **HTTP-Only Cookies**: Prevents JavaScript access to sensitive cookies, protecting against XSS attacks
+2. **Secure Flag**: Ensures cookies are only sent over HTTPS in production environments
+3. **SameSite Policy**: Set to 'strict' to protect against CSRF attacks
+4. **Short-lived Access Tokens**: Access tokens have a short lifetime (e.g., 15 minutes) to minimize the impact of token theft
+5. **Token Refresh Mechanism**: Uses refresh tokens to obtain new access tokens without requiring re-authentication
+6. **Error Handling**: Uses non-revealing error messages to prevent information leakage
+7. **Repository Pattern**: Abstracts authentication logic for better maintainability and security
+8. **Token Validation by Expiration**: Checks token expiration time to avoid unnecessary network calls
+9. **Authorization Headers**: Includes bearer tokens for backend API communication
 
 ## Contributing
 
@@ -334,3 +572,9 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
+
+## License
+
+This project is licensed under MIT license.
+
+Copyright (c) 2025 - Muhammad Arifin
