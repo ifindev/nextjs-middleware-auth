@@ -64,7 +64,7 @@ pnpm run dev
 
 ### Setting up the Backend Service
 
-If you don't have any backend service available, you can use backend app I have built in my [Secure Auth](https://github.com/ifindev/secure-authentication/tree/feat/return-refresh-token). Here's how you can set it up:
+If you don't have any backend service available, you can use backend app I have built in my [Secure Auth](https://github.com/ifindev/secure-authentication/tree/feat/return-refresh-token) project. Here's how you can set it up:
 
 1. Clone the repository:
 
