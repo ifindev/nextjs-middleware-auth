@@ -1,6 +1,11 @@
 # Next.js Authentication Example
 
-This project demonstrates two authentication approaches in Next.js using the App Router: **Session-based Authentication** and **JWT Authentication**. Both implementations follow security best practices and provide protection for routes in a Next.js application.
+This project demonstrates two authentication approaches in Next.js using the App Router:
+
+- **Session-based Authentication**
+- **JWT Authentication**
+
+Both implementations follow security best practices and provide protection for routes in a Next.js application.
 
 On this application, authentication is handled with Next.js server actions. No external backend service, since this is the simplest showcase of how you can implement a basic secure authentication in Next.js without additional authentication libraries.
 
