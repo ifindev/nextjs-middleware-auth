@@ -1,3 +1,5 @@
+'use client';
+
 import useHomeViewModel from './home.view-model';
 
 export default function HomeView() {
