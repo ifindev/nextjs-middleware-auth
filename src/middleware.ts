@@ -1,13 +1,8 @@
 import { NextRequest } from 'next/server';
-import { jwtAuthMiddleware } from './middlewares/jwt-auth.middleware';
-// import { sessionAuthMiddleware } from './middlewares/session-auth';
+import authMiddleware from './middlewares/auth.middleware';
 
 export async function middleware(request: NextRequest) {
-    // CAN SWITCH BETWEEN JWT AND SESSION AUTH
-    // BUT, CHANGE THE LOGIN & LOGOUT METHOD IN LOGIN PAGE
-    // AND LOGOUT IN THE HOME PAGE
-    return jwtAuthMiddleware(request);
-    // return sessionAuthMiddleware(request);
+    return authMiddleware(request);
 }
 
 export const config = {
