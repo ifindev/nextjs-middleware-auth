@@ -2,6 +2,18 @@
 
 This project demonstrates two authentication approaches in Next.js using the App Router: **Session-based Authentication** and **JWT Authentication**. Both implementations follow security best practices and provide protection for routes in a Next.js application.
 
+On this application, authentication is handled with Next.js server actions. No external backend service, since this is the simplest showcase of how you can implement a basic secure authentication in Next.js without additional authentication libraries.
+
+For detailed real-production ready implementation that connects with Backend service, you can checkout to the `feat/jwt-auth-external-api` branch. It has a major refactored authentication implementations with:
+
+- external backend service
+- layered architecture following clean architecture approach
+- jwt-based authentication focus
+
+You can also check that branch by going to this URL https://github.com/ifindev/nextjs-middleware-auth/tree/feat/jwt-auth-external-api. If you want to check the code on web, just open the web editor via this URL https://github.dev/ifindev/nextjs-middleware-auth/tree/feat/jwt-auth-external-api.
+
+Have fun!
+
 ## Table of Contents
 
 - [Introduction](#introduction)
