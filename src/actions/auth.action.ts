@@ -10,6 +10,14 @@ import {
     refreshTokenCookieOptions,
 } from '@/constants/cookie.constant';
 
+export async function getAuthToken() {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get(COOKIE_NAME.ACCESS_TOKEN)?.value ?? '';
+    const refreshToken = cookieStore.get(COOKIE_NAME.REFRESH_TOKEN)?.value ?? '';
+
+    return { accessToken, refreshToken };
+}
+
 export async function loginAction(_prevState: unknown, formData: FormData) {
     try {
         const username = formData.get('username') as string;
