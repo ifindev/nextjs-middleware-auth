@@ -1,6 +1,5 @@
-import { cookies } from 'next/headers';
 import { IHttpClient } from './http.client.interface';
-import { COOKIE_NAME } from '@/constants/cookie.constant';
+import { getAuthToken } from '@/actions/auth.action';
 
 export interface BaseHttpClientConfig {
     baseUrl?: string;
@@ -22,10 +21,9 @@ export class BaseHttpClient implements IHttpClient {
         };
     }
 
-    async getBearerToken(): Promise<string> {
-        const cookieStore = await cookies();
-        const accessToken = cookieStore.get(COOKIE_NAME.ACCESS_TOKEN)?.value ?? '';
-        return `Bearer ${accessToken}`;
+    async getAuthTokens(): Promise<{ accessToken: string; refreshToken: string }> {
+        const { accessToken, refreshToken } = await getAuthToken();
+        return { accessToken, refreshToken };
     }
 
     handleError(error: unknown): never {
@@ -44,14 +42,13 @@ export class BaseHttpClient implements IHttpClient {
     private async buildHeaders(
         headers: Record<string, string> = {},
     ): Promise<Record<string, string>> {
-        const cookieStore = await cookies();
-        const bearerToken = await this.getBearerToken();
+        const { accessToken, refreshToken } = await this.getAuthTokens();
         return {
             ...this.getDefaultHeaders(),
             ...this.headers,
             ...headers,
-            Cookie: cookieStore.toString(),
-            Authorization: bearerToken,
+            Cookie: `refreshToken=${refreshToken}`,
+            Authorization: `Bearer ${accessToken}`,
         };
     }
 
@@ -120,7 +117,10 @@ export class BaseHttpClient implements IHttpClient {
 }
 
 const httpClient = new BaseHttpClient({
-    baseUrl: process.env.BACKEND_API_URL ?? '',
+    baseUrl:
+        typeof window === 'undefined'
+            ? (process.env.BACKEND_API_URL ?? 'http://localhost:5000/api/') // Server-side
+            : (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 'http://localhost:5000/api/'), // Client-side
 });
 
 export default httpClient;
