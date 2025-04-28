@@ -18,5 +18,5 @@ export const refreshTokenCookieOptions: Partial<ResponseCookie> = {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
     path: '/',
-    maxAge: 30, // 30 seconds => JUST FOR DEMO PURPOSES. SHOULD BE COMMUNICATED WITH THE BACKEND TEAM.
+    maxAge: 60, // 30 seconds => JUST FOR DEMO PURPOSES. SHOULD BE COMMUNICATED WITH THE BACKEND TEAM.
 };
