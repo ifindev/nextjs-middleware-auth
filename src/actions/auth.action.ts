@@ -18,6 +18,12 @@ export async function getAuthToken() {
     return { accessToken, refreshToken };
 }
 
+export async function setAuthToken(accessToken: string, refreshToken: string) {
+    const cookieStore = await cookies();
+    cookieStore.set(COOKIE_NAME.ACCESS_TOKEN, accessToken, accessTokenCookieOptions);
+    cookieStore.set(COOKIE_NAME.REFRESH_TOKEN, refreshToken, refreshTokenCookieOptions);
+}
+
 export async function loginAction(_prevState: unknown, formData: FormData) {
     try {
         const username = formData.get('username') as string;
