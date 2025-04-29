@@ -1,5 +1,5 @@
 import { IHttpClient } from './http.client.interface';
-import { getAuthToken } from '@/actions/auth.action';
+import { getAuthTokens } from '@/actions/auth.action';
 
 export interface BaseHttpClientConfig {
     baseUrl?: string;
@@ -22,7 +22,7 @@ export class BaseHttpClient implements IHttpClient {
     }
 
     async getAuthTokens(): Promise<{ accessToken: string; refreshToken: string }> {
-        const { accessToken, refreshToken } = await getAuthToken();
+        const { accessToken, refreshToken } = await getAuthTokens();
         return { accessToken, refreshToken };
     }
 

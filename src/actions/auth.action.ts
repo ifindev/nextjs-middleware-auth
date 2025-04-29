@@ -10,7 +10,7 @@ import {
     refreshTokenCookieOptions,
 } from '@/constants/cookie.constant';
 
-export async function getAuthToken() {
+export async function getAuthTokens() {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get(COOKIE_NAME.ACCESS_TOKEN)?.value ?? '';
     const refreshToken = cookieStore.get(COOKIE_NAME.REFRESH_TOKEN)?.value ?? '';
