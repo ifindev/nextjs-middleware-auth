@@ -31,7 +31,7 @@ export class BaseHttpClient implements IHttpClient {
     }
 
     private async handleResponse<T>(response: Response): Promise<T> {
-        return response.json();
+        return response.json() as T;
     }
 
     updateConfig(config: BaseHttpClientConfig): void {
@@ -119,8 +119,8 @@ export class BaseHttpClient implements IHttpClient {
 const httpClient = new BaseHttpClient({
     baseUrl:
         typeof window === 'undefined'
-            ? (process.env.BACKEND_API_URL ?? 'http://localhost:5000/api/') // Server-side
-            : (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? 'http://localhost:5000/api/'), // Client-side
+            ? (process.env.BACKEND_API_URL ?? '') // Server-side
+            : (process.env.NEXT_PUBLIC_BACKEND_API_URL ?? ''), // Client-side
 });
 
 export default httpClient;
