@@ -21,13 +21,13 @@ export class BaseHttpClient implements IHttpClient {
         };
     }
 
-    async getAuthTokens(): Promise<{ accessToken: string; refreshToken: string }> {
-        const { accessToken, refreshToken } = await getAuthTokens();
-        return { accessToken, refreshToken };
+    async getAuthTokens() {
+        const { accessToken } = await getAuthTokens();
+        return { accessToken };
     }
 
     handleError(error: unknown): never {
-        throw error;
+        throw new Error(error instanceof Error ? error.message : 'An unknown error occurred');
     }
 
     private async handleResponse<T>(response: Response): Promise<T> {
@@ -42,12 +42,11 @@ export class BaseHttpClient implements IHttpClient {
     private async buildHeaders(
         headers: Record<string, string> = {},
     ): Promise<Record<string, string>> {
-        const { accessToken, refreshToken } = await this.getAuthTokens();
+        const { accessToken } = await this.getAuthTokens();
         return {
             ...this.getDefaultHeaders(),
             ...this.headers,
             ...headers,
-            Cookie: `refreshToken=${refreshToken}`,
             Authorization: `Bearer ${accessToken}`,
         };
     }
